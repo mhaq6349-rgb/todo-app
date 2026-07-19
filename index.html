@@ -301,8 +301,8 @@ function formatDue(iso) { if (!iso) return ''; const d = new Date(iso + 'T00:00:
 
 async function checkServer() {
   try {
-    const res = await fetch(API, { method:'HEAD' })
-    online = res.ok || res.status >= 200
+    const res = await fetch(API + '?_=' + Date.now())
+    online = res.ok
   } catch { online = false }
   offlineBanner.classList.toggle('show', !online)
   return online
