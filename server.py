@@ -37,6 +37,7 @@ def create_todo():
         'completed': False,
         'createdAt': datetime.now(timezone.utc).isoformat(),
         'order': max_order + 1,
+        'dueDate': data.get('dueDate', ''),
     }
     todos.append(todo)
     save(todos)
@@ -54,6 +55,8 @@ def update_todo(todo_id):
                 t['completed'] = bool(data['completed'])
             if 'order' in data:
                 t['order'] = int(data['order'])
+            if 'dueDate' in data:
+                t['dueDate'] = data['dueDate']
             save(todos)
             return jsonify(t)
     return jsonify({'error': 'Not found'}), 404

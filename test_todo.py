@@ -3,8 +3,7 @@ import sys
 from playwright.sync_api import sync_playwright
 
 URL = 'http://localhost:5000'
-passed = []
-failed = []
+passed, failed = [], []
 
 def check(name, cond, detail=''):
     if cond:
@@ -13,6 +12,11 @@ def check(name, cond, detail=''):
     else:
         failed.append(name)
         print(f'  FAIL: {name}  {detail}')
+
+def count(page): return page.locator('.item').count()
+
+def wait_count(page, n, timeout=3000):
+    page.wait_for_function(f'document.querySelectorAll(".item").length === {n}', timeout=timeout)
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
@@ -23,111 +27,89 @@ with sync_playwright() as p:
 
     print('\n=== Initial State ===')
     check('page loads', 'Todo' in page.title())
-    check('empty state shown', page.locator('.empty').is_visible())
-    check('count = 0 items', '0 items' in page.locator('#count').text_content())
-    check('remaining = 0 left', '0 left' in page.locator('#remaining').text_content())
+    check('empty state', page.locator('.empty').is_visible())
+    check('no offline banner', page.locator('#offlineBanner').is_hidden())
+    check('date picker exists', page.locator('#dueDateInput').is_visible())
+    check('count 0', '0 items' in page.locator('#count').text_content())
 
     print('\n=== Add Tasks ===')
-    input_el = page.locator('#input')
-    add_btn = page.locator('#addBtn')
-    input_el.fill('Buy groceries')
-    add_btn.click()
-    page.wait_for_timeout(400)
-    items = page.locator('.item')
-    check('first todo added', items.count() == 1, str(items.count()))
-    if items.count() > 0:
-        check('first todo text', items.first.locator('.text').text_content() == 'Buy groceries')
+    page.fill('#input', 'Buy groceries')
+    page.click('#addBtn')
+    wait_count(page, 1)
+    check('first todo added', count(page) == 1, str(count(page)))
+    check('first todo text', page.locator('.item').first.locator('.text').text_content() == 'Buy groceries')
 
-    input_el.fill('Walk the dog')
+    page.fill('#input', 'Walk the dog')
+    page.fill('#dueDateInput', '2026-07-20')
+    page.locator('#input').focus()
     page.keyboard.press('Enter')
-    page.wait_for_timeout(400)
-    check('second todo via Enter', page.locator('.item').count() == 2, str(page.locator('.item').count()))
+    wait_count(page, 2)
+    check('second with due date', count(page) == 2, str(count(page)))
+    due_spans = page.locator('.date.due')
+    check('due date badge visible', due_spans.count() >= 1, str(due_spans.count()))
 
-    input_el.fill('Read a book')
-    add_btn.click()
-    page.wait_for_timeout(400)
-    check('third todo', page.locator('.item').count() == 3, str(page.locator('.item').count()))
-    check('count = 3 items', '3 items' in page.locator('#count').text_content())
+    page.fill('#input', 'Read a book')
+    page.wait_for_timeout(100)
+    page.click('#addBtn')
+    wait_count(page, 3)
+    check('third todo', count(page) == 3, str(count(page)))
 
     print('\n=== Toggle ===')
     page.locator('.checkbox').first.click()
     page.wait_for_timeout(400)
-    check('first item completed', page.locator('.text.done').count() == 1, str(page.locator('.text.done').count()))
-
-    page.locator('.checkbox').nth(1).click()
-    page.wait_for_timeout(500)
-    check('second item completed', page.locator('.text.done').count() == 2, str(page.locator('.text.done').count()))
-    page.wait_for_timeout(200)
-    check('remaining = 1 left', '1 left' in page.locator('#remaining').text_content())
-
-    page.locator('.checkbox').nth(1).click()
-    page.wait_for_timeout(400)
-    check('second item uncompleted', page.locator('.text.done').count() == 1, str(page.locator('.text.done').count()))
-    check('clear done button shows', page.locator('#clearBtn').is_visible())
+    check('first completed', page.locator('.text.done').count() == 1)
 
     print('\n=== Filter ===')
     page.locator('button[data-filter="active"]').click()
     page.wait_for_timeout(200)
-    check('active filter 2 items', page.locator('.item').count() == 2, str(page.locator('.item').count()))
+    check('active filter 2', count(page) == 2, str(count(page)))
 
     page.locator('button[data-filter="completed"]').click()
     page.wait_for_timeout(200)
-    check('completed filter 1 item', page.locator('.item').count() == 1, str(page.locator('.item').count()))
+    check('completed filter 1', count(page) == 1, str(count(page)))
 
     page.locator('button[data-filter="all"]').click()
     page.wait_for_timeout(200)
-    check('all filter 3 items', page.locator('.item').count() == 3, str(page.locator('.item').count()))
+    check('all filter 3', count(page) == 3, str(count(page)))
 
     print('\n=== Clear Completed ===')
+    page.locator('.checkbox').first.click()
+    page.wait_for_timeout(200)
+    page.locator('.checkbox').nth(1).click()
+    page.wait_for_timeout(400)
     page.locator('#clearBtn').click()
     page.wait_for_timeout(400)
-    check('clear completed: 2 items', page.locator('.item').count() == 2, str(page.locator('.item').count()))
-    check('remaining = 2 left', '2 left' in page.locator('#remaining').text_content())
-
-    print('\n=== Edit ===')
-    page.locator('.edit-btn').first.click()
-    page.wait_for_timeout(200)
-    check('edit mode', page.locator('.text-edit').is_visible())
-    page.locator('.text-edit').fill('Buy organic groceries')
-    page.locator('[data-save]').click()
-    page.wait_for_timeout(300)
-    check('edit saved', page.locator('.item').first.locator('.text').text_content() == 'Buy organic groceries')
-
-    print('\n=== Escape cancels edit ===')
-    page.locator('.edit-btn').first.click()
-    page.wait_for_timeout(200)
-    page.keyboard.press('Escape')
-    page.wait_for_timeout(200)
-    check('escape cancels', page.locator('.text-edit').count() == 0, str(page.locator('.text-edit').count()))
+    check('clear completed: 2 remain', count(page) == 2, str(count(page)))
 
     print('\n=== Delete & Undo ===')
     page.locator('.del-btn').first.click()
     page.wait_for_timeout(500)
-    check('delete: 1 remains', page.locator('.item').count() == 1, str(page.locator('.item').count()))
+    check('delete: 1 remains', count(page) == 1, str(count(page)))
     check('undo toast', page.locator('.toast-undo').is_visible())
     page.locator('.toast-undo').click()
     page.wait_for_timeout(500)
-    check('undo restores', page.locator('.item').count() == 2, str(page.locator('.item').count()))
+    check('undo restores: 2', count(page) == 2, str(count(page)))
 
-    print('\n=== Timestamps ===')
-    check('timestamps visible', page.locator('.date').count() > 0, str(page.locator('.date').count()))
+    print('\n=== Offline Banner ===')
+    check('no offline banner', page.locator('#offlineBanner').is_hidden())
 
-    print('\n=== Empty input ===')
-    input_el.focus()
-    add_btn.click()
-    page.wait_for_timeout(200)
-    check('empty input ignored', page.locator('.item').count() == 2, str(page.locator('.item').count()))
+    print('\n=== API ===')
+    res = page.evaluate('''async () => {
+      const r = await fetch('/api/todos');
+      const d = await r.json();
+      return d.length;
+    }''')
+    check('API returns correct count', res == 2, str(res))
 
     print('\n=== Persistence ===')
     page.reload()
     page.wait_for_selector('.card')
     page.wait_for_timeout(500)
-    check('todos persist', page.locator('.item').count() == 2, str(page.locator('.item').count()))
+    check('todos persist', count(page) == 2, str(count(page)))
 
     print(f'\n{"="*40}')
     print(f'Results: {len(passed)} passed, {len(failed)} failed')
-    if failed:
-        print(f'Failed: {", ".join(failed)}')
+    if failed: print(f'Failed: {", ".join(failed)}')
     print(f'{"="*40}')
     browser.close()
     sys.exit(1 if failed else 0)

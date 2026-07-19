@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Todo</title>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -13,7 +13,7 @@
   --text:#e8e8f0; --text-secondary:rgba(255,255,255,0.4);
   --text-muted:rgba(255,255,255,0.25); --primary:#6c5ce7;
   --primary-hover:#7c6ff7; --primary-glow:rgba(108,92,231,0.2);
-  --complete:#00cec9; --delete:#ff6b81;
+  --complete:#00cec9; --delete:#ff6b81; --overdue:#ff6b81; --due-soon:#f9ca24;
   --radius:14px; --radius-sm:10px;
 }
 
@@ -42,7 +42,7 @@ body{
   75%{transform:translate(35px,25px)scale(1.02)}
 }
 
-.container{position:relative;z-index:1;width:100%;max-width:480px}
+.container{position:relative;z-index:1;width:100%;max-width:500px}
 header{
   text-align:center;margin-bottom:24px;
   animation:fadeDown .6s cubic-bezier(.16,1,.3,1) both
@@ -63,28 +63,43 @@ header p{font-size:.82rem;color:var(--text-secondary);margin-top:4px}
 }
 @keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
 
-.input-row{
-  display:flex;gap:8px;padding:16px 20px;
-  border-bottom:1px solid var(--border)
+.add-form{
+  padding:16px 20px;border-bottom:1px solid var(--border);
+  display:flex;flex-direction:column;gap:8px
 }
-.input-row input{
-  flex:1;padding:12px 16px;border-radius:var(--radius-sm);
+.add-form .row{display:flex;gap:8px}
+.add-form .row input[type="text"]{
+  flex:1;padding:12px 14px;border-radius:var(--radius-sm);
   border:1px solid var(--border);background:rgba(255,255,255,.04);
   color:var(--text);font-size:.95rem;font-family:inherit;
   outline:none;transition:border-color .2s,box-shadow .2s
 }
-.input-row input::placeholder{color:var(--text-muted)}
-.input-row input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-glow)}
-.input-row button{
+.add-form .row input[type="text"]::placeholder{color:var(--text-muted)}
+.add-form .row input[type="text"]:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-glow)}
+.add-form .row button{
   width:44px;height:44px;border-radius:var(--radius-sm);border:none;
   background:linear-gradient(135deg,#6c5ce7,#00cec9);
   color:#fff;font-size:1.4rem;cursor:pointer;display:grid;place-items:center;
   flex-shrink:0;transition:transform .15s,box-shadow .15s;
   box-shadow:0 4px 15px rgba(108,92,231,.25)
 }
-.input-row button:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(108,92,231,.35)}
-.input-row button:active{transform:scale(.93)}
-.input-row button:disabled{opacity:.4;cursor:default;transform:none;box-shadow:none}
+.add-form .row button:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(108,92,231,.35)}
+.add-form .row button:active{transform:scale(.93)}
+.add-form .row button:disabled{opacity:.4;cursor:default;transform:none;box-shadow:none}
+.add-form .date-row{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--text-secondary)}
+.add-form .date-row label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.add-form .date-row input[type="date"]{
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:6px;padding:5px 10px;color:var(--text);font-size:.8rem;font-family:inherit;
+  outline:none;transition:border-color .2s;cursor:pointer
+}
+.add-form .date-row input[type="date"]:focus{border-color:var(--primary)}
+.add-form .date-row .clear-date{
+  background:none;border:none;color:var(--text-muted);cursor:pointer;
+  font-size:.85rem;padding:2px 6px;border-radius:4px;display:none
+}
+.add-form .date-row .clear-date.show{display:inline}
+.add-form .date-row .clear-date:hover{color:var(--delete);background:rgba(255,107,129,.1)}
 
 .toolbar{
   display:flex;justify-content:space-between;align-items:center;
@@ -104,21 +119,22 @@ header p{font-size:.82rem;color:var(--text-secondary);margin-top:4px}
 .clear-btn:hover{background:rgba(255,107,129,.1)}
 
 .list{padding:4px 8px;min-height:80px}
-
-.empty{
-  text-align:center;padding:40px 20px;color:var(--text-muted);
-  animation:fadeIn .3s ease
-}
+.empty{text-align:center;padding:40px 20px;color:var(--text-muted);animation:fadeIn .3s ease}
 .empty svg{width:48px;height:48px;margin-bottom:12px;opacity:.3}
 .empty p{font-size:.9rem}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+.offline-banner{
+  background:rgba(255,107,129,.1);border-bottom:1px solid rgba(255,107,129,.2);
+  padding:10px 20px;text-align:center;font-size:.8rem;color:var(--delete);display:none
+}
+.offline-banner.show{display:block}
 
 .item{
   display:flex;align-items:center;gap:10px;
   padding:10px 12px;margin:4px 0;border-radius:var(--radius-sm);
   transition:background .15s;cursor:default;
-  animation:itemIn .35s cubic-bezier(.16,1,.3,1) both;
-  position:relative
+  animation:itemIn .35s cubic-bezier(.16,1,.3,1) both;position:relative
 }
 .item.dragging{opacity:.5;background:var(--surface-hover)}
 .item.drag-over{border-top:2px solid var(--primary)}
@@ -127,9 +143,8 @@ header p{font-size:.82rem;color:var(--text-secondary);margin-top:4px}
 @keyframes itemOut{to{opacity:0;transform:translateX(30px)scale(.95)}}
 .item:hover{background:var(--surface-hover)}
 .item .drag-handle{
-  width:16px;height:16px;flex-shrink:0;cursor:grab;opacity:0;
-  transition:opacity .15s;display:grid;place-items:center;
-  color:var(--text-muted);font-size:.7rem
+  width:16px;flex-shrink:0;cursor:grab;opacity:0;transition:opacity .15s;
+  display:grid;place-items:center;color:var(--text-muted);font-size:.7rem
 }
 .item:hover .drag-handle{opacity:.4}
 .drag-handle:active{cursor:grabbing}
@@ -160,12 +175,17 @@ header p{font-size:.82rem;color:var(--text-secondary);margin-top:4px}
 .item .text-edit{
   width:100%;padding:4px 8px;border-radius:6px;
   border:1px solid var(--primary);background:rgba(108,92,231,.08);
-  color:var(--text);font-size:.92rem;font-family:inherit;
-  outline:none
+  color:var(--text);font-size:.92rem;font-family:inherit;outline:none
 }
+.item .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px}
 .item .date{
-  font-size:.7rem;color:var(--text-muted);margin-top:2px
+  font-size:.7rem;padding:1px 6px;border-radius:4px;display:inline-flex;align-items:center;gap:3px
 }
+.item .date.created{color:var(--text-muted)}
+.item .date.due{color:var(--text-secondary);background:rgba(255,255,255,.03)}
+.item .date.overdue{color:var(--overdue);background:rgba(255,107,129,.1)}
+.item .date.due-soon{color:var(--due-soon);background:rgba(249,202,36,.08)}
+.item .date.done-date{color:var(--complete);text-decoration:line-through}
 
 .item .actions{display:flex;gap:4px;flex-shrink:0;opacity:0;transition:opacity .15s}
 .item:hover .actions{opacity:1}
@@ -199,22 +219,18 @@ header p{font-size:.82rem;color:var(--text-secondary);margin-top:4px}
 .toast .toast-undo{
   background:linear-gradient(135deg,#6c5ce7,#00cec9);
   border:none;color:#fff;padding:4px 12px;border-radius:6px;
-  cursor:pointer;font-size:.8rem;font-family:inherit;font-weight:500;
-  transition:transform .1s
+  cursor:pointer;font-size:.8rem;font-family:inherit;font-weight:500;transition:transform .1s
 }
 .toast .toast-undo:active{transform:scale(.95)}
-.toast .toast-close{
-  background:none;border:none;color:var(--text-muted);cursor:pointer;
-  font-size:1rem;padding:2px;display:grid;place-items:center
-}
+.toast .toast-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:2px;display:grid;place-items:center}
 
 .pulse{animation:pulse .4s cubic-bezier(.34,1.56,.64,1)}
 @keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
 
 @media(max-width:500px){
   body{padding:12px}
-  .input-row{padding:12px 14px}
-  .input-row input{padding:10px 12px;font-size:.9rem}
+  .add-form{padding:12px 14px}
+  .add-form .row input[type="text"]{padding:10px 12px;font-size:.9rem}
   .item{padding:8px 10px}
   .item .drag-handle{opacity:.4}
   .item .actions{opacity:1}
@@ -238,10 +254,22 @@ header p{font-size:.82rem;color:var(--text-secondary);margin-top:4px}
   </header>
 
   <div class="card">
-    <div class="input-row">
-      <input id="input" type="text" placeholder="Add a task..." autofocus>
-      <button id="addBtn">+</button>
+    <div class="add-form">
+      <div class="row">
+        <input id="input" type="text" placeholder="Add a task..." autofocus />
+        <button id="addBtn">+</button>
+      </div>
+      <div class="date-row">
+        <label>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Due
+        </label>
+        <input id="dueDateInput" type="date" />
+        <button id="clearDateBtn" class="clear-date">✕</button>
+      </div>
     </div>
+
+    <div class="offline-banner" id="offlineBanner">Server unreachable — changes won't be saved</div>
 
     <div class="toolbar">
       <span id="remaining">0 left</span>
@@ -266,11 +294,31 @@ const API = '/api/todos'
 let todos = []
 let filter = localStorage.getItem('todoFilter') || 'all'
 let editingId = null
+let online = true
 
 const $ = s => document.querySelector(s)
 const input = $('#input'), addBtn = $('#addBtn'), list = $('#list')
 const count = $('#count'), remaining = $('#remaining'), clearBtn = $('#clearBtn')
-const toasts = $('#toasts')
+const dueDateInput = $('#dueDateInput'), clearDateBtn = $('#clearDateBtn')
+const toasts = $('#toasts'), offlineBanner = $('#offlineBanner')
+
+function todayISO() { return new Date().toISOString().slice(0,10) }
+
+function daysUntil(iso) {
+  if (!iso) return null
+  const now = new Date(); now.setHours(0,0,0,0)
+  const then = new Date(iso + 'T00:00:00')
+  return Math.round((then - now) / 86400000)
+}
+
+function dueStatus(iso, completed) {
+  if (!iso || completed) return ''
+  const d = daysUntil(iso)
+  if (d < 0) return 'overdue'
+  if (d === 0) return 'overdue'
+  if (d <= 2) return 'due-soon'
+  return ''
+}
 
 function formatDate(iso) {
   if (!iso) return ''
@@ -284,8 +332,19 @@ function formatDate(iso) {
   return d.toLocaleDateString()
 }
 
+function formatDue(iso) { if (!iso) return ''; const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString(undefined,{month:'short',day:'numeric'}) }
+
+async function checkServer() {
+  try {
+    const res = await fetch(API, { method:'HEAD' })
+    online = res.ok || res.status >= 200
+  } catch { online = false }
+  offlineBanner.classList.toggle('show', !online)
+  return online
+}
+
 async function api(method, path, body) {
-  const opts = { method, headers: { 'Content-Type': 'application/json' } }
+  const opts = { method, headers:{'Content-Type':'application/json'} }
   if (body) opts.body = JSON.stringify(body)
   const res = await fetch(API + path, opts)
   if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'Request failed') }
@@ -294,25 +353,36 @@ async function api(method, path, body) {
 }
 
 async function loadTodos() {
-  try { todos = await api('GET', '') } catch { toast('Failed to load todos', 3000) }
+  await checkServer()
+  if (!online) return
+  try { todos = await api('GET', '') } catch { online = false; offlineBanner.classList.toggle('show', !online); toast('Failed to load todos', 3000) }
   render()
+}
+
+function getDueDate() {
+  const val = dueDateInput.value
+  return val || ''
 }
 
 async function addTodo() {
   const text = input.value.trim()
   if (!text) return
+  await checkServer()
+  if (!online) { toast('Cannot add — server is offline', 3000); return }
   addBtn.disabled = true
   try {
-    const todo = await api('POST', '', { text })
+    const dueDate = getDueDate()
+    const todo = await api('POST', '', { text, dueDate })
     todos.unshift(todo)
-    input.value = ''; input.focus()
-    list.querySelector('.item:first-child')?.classList.add('pulse')
+    input.value = ''; dueDateInput.value = ''; clearDateBtn.classList.remove('show')
+    input.focus()
     render()
   } catch (e) { toast(e.message, 3000) }
   finally { addBtn.disabled = false }
 }
 
 async function toggleTodo(id) {
+  if (!online) return
   const t = todos.find(t => t.id === id)
   if (!t) return
   try {
@@ -323,8 +393,7 @@ async function toggleTodo(id) {
 }
 
 function startEdit(id) {
-  editingId = id
-  render()
+  editingId = id; render()
   const edit = list.querySelector('.text-edit')
   if (edit) { edit.focus(); edit.select() }
 }
@@ -338,8 +407,7 @@ async function saveEdit(id) {
     await api('PUT', '/' + id, { text })
     const t = todos.find(t => t.id === id)
     if (t) t.text = text
-    editingId = null
-    render()
+    editingId = null; render()
   } catch (e) { toast(e.message, 3000); editingId = null; render() }
 }
 
@@ -359,7 +427,7 @@ async function deleteTodo(id, el) {
 function showUndo(todo) {
   const el = document.createElement('div')
   el.className = 'toast'
-  el.innerHTML = `Deleted "${todo.text}" <button class="toast-undo">Undo</button> <button class="toast-close">✕</button>`
+  el.innerHTML = `Deleted "${esc(todo.text)}" <button class="toast-undo">Undo</button> <button class="toast-close">✕</button>`
   toasts.prepend(el)
   const timer = setTimeout(() => { if (el.parentNode) { el.classList.add('removing'); setTimeout(() => el.remove(), 200) } }, 5000)
   el.querySelector('.toast-undo').onclick = () => { clearTimeout(timer); el.classList.add('removing'); setTimeout(() => el.remove(), 200); undoDelete(todo) }
@@ -367,15 +435,13 @@ function showUndo(todo) {
 }
 
 function undoDelete(todo) {
-  todos.unshift(todo)
-  render()
-  api('POST', '', { text: todo.text }).catch(() => {})
+  todos.unshift(todo); render()
+  api('POST', '', { text: todo.text, dueDate: todo.dueDate || '' }).catch(() => {})
 }
 
 async function clearCompleted() {
   const completed = todos.filter(t => t.completed)
-  todos = todos.filter(t => !t.completed)
-  render()
+  todos = todos.filter(t => !t.completed); render()
   try {
     await Promise.all(completed.map(t => api('DELETE', '/' + t.id)))
     toast('Cleared ' + completed.length + ' completed', 2000)
@@ -384,49 +450,30 @@ async function clearCompleted() {
 
 let dragId = null
 list.addEventListener('dragstart', e => {
-  const item = e.target.closest('.item')
-  if (!item) return
-  dragId = item.dataset.id
-  item.classList.add('dragging')
-  e.dataTransfer.effectAllowed = 'move'
+  const item = e.target.closest('.item'); if (!item) return
+  dragId = item.dataset.id; item.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'
 })
-list.addEventListener('dragend', e => {
-  document.querySelectorAll('.item').forEach(i => i.classList.remove('dragging', 'drag-over'))
-})
+list.addEventListener('dragend', () => { document.querySelectorAll('.item').forEach(i => i.classList.remove('dragging','drag-over')) })
 list.addEventListener('dragover', e => {
-  e.preventDefault()
-  const item = e.target.closest('.item')
-  if (!item || item.dataset.id === dragId) return
+  e.preventDefault(); const item = e.target.closest('.item'); if (!item||item.dataset.id===dragId) return
   document.querySelectorAll('.item').forEach(i => i.classList.remove('drag-over'))
   const rect = item.getBoundingClientRect()
-  const mid = rect.top + rect.height / 2
-  if (e.clientY < mid) item.classList.add('drag-over')
+  if (e.clientY < rect.top + rect.height/2) item.classList.add('drag-over')
 })
-list.addEventListener('dragleave', e => {
-  const item = e.target.closest('.item')
-  if (item && item.dataset.id !== dragId) item.classList.remove('drag-over')
-})
+list.addEventListener('dragleave', e => { const item = e.target.closest('.item'); if (item&&item.dataset.id!==dragId) item.classList.remove('drag-over') })
 list.addEventListener('drop', e => {
-  e.preventDefault()
-  document.querySelectorAll('.item').forEach(i => i.classList.remove('dragging', 'drag-over'))
-  const target = e.target.closest('.item')
-  if (!target || !dragId || target.dataset.id === dragId) return
-  const from = todos.findIndex(t => t.id === dragId)
-  const to = todos.findIndex(t => t.id === target.dataset.id)
-  if (from < 0 || to < 0) return
-  const [moved] = todos.splice(from, 1)
-  const rect = target.getBoundingClientRect()
-  const insertAfter = e.clientY > rect.top + rect.height / 2
-  todos.splice(to + (insertAfter ? 1 : 0), 0, moved)
-  todos.forEach((t, i) => t.order = i)
-  render()
-  api('PUT', '/reorder', { order: todos.map((t, i) => ({ id: t.id, order: i })) }).catch(() => {})
+  e.preventDefault(); document.querySelectorAll('.item').forEach(i => i.classList.remove('dragging','drag-over'))
+  const target = e.target.closest('.item'); if (!target||!dragId||target.dataset.id===dragId) return
+  const from = todos.findIndex(t => t.id === dragId), to = todos.findIndex(t => t.id === target.dataset.id)
+  if (from<0||to<0) return
+  const [moved] = todos.splice(from,1); const rect = target.getBoundingClientRect()
+  todos.splice(to + (e.clientY > rect.top + rect.height/2 ? 1 : 0), 0, moved)
+  todos.forEach((t,i) => t.order = i); render()
+  api('PUT', '/reorder', { order: todos.map((t,i) => ({id:t.id,order:i})) }).catch(() => {})
 })
 
 function toast(msg, duration = 2000) {
-  const el = document.createElement('div')
-  el.className = 'toast'
-  el.textContent = msg
+  const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg
   toasts.prepend(el)
   setTimeout(() => { if (el.parentNode) { el.classList.add('removing'); setTimeout(() => el.remove(), 200) } }, duration)
 }
@@ -449,67 +496,46 @@ function render() {
     const done = t.completed ? 'done' : ''
     const checked = t.completed ? 'checked' : ''
     const isEditing = editingId === t.id
-    const textHtml = isEditing
-      ? `<input class="text-edit" type="text" value="${esc(t.text)}">`
-      : `<span class="text ${done}">${esc(t.text)}</span>`
-    const dateHtml = t.createdAt ? `<div class="date">${formatDate(t.createdAt)}</div>` : ''
+    const textHtml = isEditing ? `<input class="text-edit" type="text" value="${esc(t.text)}">` : `<span class="text ${done}">${esc(t.text)}</span>`
+    const createdDate = t.createdAt ? `<span class="date created">${formatDate(t.createdAt)}</span>` : ''
+    const status = dueStatus(t.dueDate, t.completed)
+    const dueHtml = t.dueDate ? `<span class="date due ${status} ${done}">${status === 'overdue' ? '⚠ ' : ''}${formatDue(t.dueDate)}</span>` : ''
     html += `<div class="item" data-id="${t.id}" draggable="true">
       <div class="drag-handle">⠿</div>
       <div class="checkbox ${checked}"></div>
-      <div class="text-wrap">${textHtml}${dateHtml}</div>
-      <div class="actions">
-        ${isEditing ? '<button class="edit-btn" data-save>✓</button>' : '<button class="edit-btn">✎</button>'}
-        <button class="del-btn">✕</button>
-      </div>
+      <div class="text-wrap">${textHtml}<div class="meta">${createdDate}${dueHtml}</div></div>
+      <div class="actions">${isEditing ? '<button class="edit-btn" data-save>✓</button>' : '<button class="edit-btn">✎</button>'}<button class="del-btn">✕</button></div>
     </div>`
   }
   list.innerHTML = html || '<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><p>Nothing here yet</p></div>'
 }
 
-function esc(s) {
-  const d = document.createElement('div')
-  d.textContent = s
-  return d.innerHTML
-}
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML }
+
+dueDateInput.addEventListener('input', () => clearDateBtn.classList.toggle('show', !!dueDateInput.value))
+clearDateBtn.addEventListener('click', () => { dueDateInput.value = ''; clearDateBtn.classList.remove('show') })
 
 list.addEventListener('click', e => {
-  const item = e.target.closest('.item')
-  if (!item) return
+  const item = e.target.closest('.item'); if (!item) return
   const id = item.dataset.id
-
   if (e.target.closest('[data-save]')) { saveEdit(id); return }
   if (e.target.closest('.del-btn')) { deleteTodo(id, item); return }
   if (e.target.closest('.edit-btn')) { startEdit(id); return }
   if (e.target.closest('.checkbox')) { toggleTodo(id); return }
-
-  if (e.target.closest('.text') && !e.target.classList.contains('done')) {
-    // don't toggle on tap of text on mobile, only checkbox
-  }
 })
 
-list.addEventListener('dblclick', e => {
-  const text = e.target.closest('.text')
-  if (text && editingId === null) {
-    const item = text.closest('.item')
-    if (item) startEdit(item.dataset.id)
-  }
-})
-
+list.addEventListener('dblclick', e => { const t = e.target.closest('.text'); if (t&&editingId===null) { const i = t.closest('.item'); if (i) startEdit(i.dataset.id) } })
 list.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && e.target.classList.contains('text-edit')) { saveEdit(e.target.closest('.item').dataset.id); e.preventDefault() }
-  if (e.key === 'Escape' && editingId) { cancelEdit(); e.preventDefault() }
+  if (e.key==='Enter' && e.target.classList.contains('text-edit')) { saveEdit(e.target.closest('.item').dataset.id); e.preventDefault() }
+  if (e.key==='Escape' && editingId) { cancelEdit(); e.preventDefault() }
 })
 
-input.addEventListener('keydown', e => { if (e.key === 'Enter') addTodo() })
+input.addEventListener('keydown', e => { if (e.key==='Enter') addTodo() })
 addBtn.addEventListener('click', addTodo)
 clearBtn.addEventListener('click', clearCompleted)
 
 document.querySelectorAll('.filters button').forEach(b => {
-  b.addEventListener('click', () => {
-    filter = b.dataset.filter
-    localStorage.setItem('todoFilter', filter)
-    render()
-  })
+  b.addEventListener('click', () => { filter = b.dataset.filter; localStorage.setItem('todoFilter', filter); render() })
 })
 
 loadTodos()
