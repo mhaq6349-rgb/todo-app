@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Todo</title>
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg: #0a0a12;
+  --surface: rgba(255,255,255,0.035);
+  --surface-hover: rgba(255,255,255,0.06);
+  --border: rgba(255,255,255,0.06);
+  --text: #e8e8f0;
+  --text-secondary: rgba(255,255,255,0.4);
+  --text-muted: rgba(255,255,255,0.25);
+  --primary: #6c5ce7;
+  --primary-hover: #7c6ff7;
+  --primary-glow: rgba(108,92,231,0.2);
+  --complete: #00cec9;
+  --delete: #ff6b81;
+  --radius: 14px;
+  --radius-sm: 10px;
+}
+
+html { font-size: 16px; }
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 20px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.bg {
+  position: fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none;
+}
+.bg .orb {
+  position:absolute; border-radius:50%;
+  filter:blur(100px); opacity:0.2;
+  animation: orbFloat 25s ease-in-out infinite;
+}
+.bg .orb:nth-child(1) { width:550px;height:550px;background:#6c5ce7;top:-15%;left:-10%; }
+.bg .orb:nth-child(2) { width:450px;height:450px;background:#00cec9;bottom:-10%;right:-8%;animation-delay:-8s; }
+.bg .orb:nth-child(3) { width:300px;height:300px;background:#fd79a8;top:40%;left:55%;animation-delay:-16s; }
+@keyframes orbFloat {
+  0%,100%{transform:translate(0,0)scale(1)}
+  25%{transform:translate(50px,-30px)scale(1.05)}
+  50%{transform:translate(-25px,40px)scale(0.95)}
+  75%{transform:translate(35px,25px)scale(1.02)}
+}
+
+.container { position:relative; z-index:1; width:100%; max-width:480px; }
+header {
+  text-align:center; margin-bottom:28px;
+  animation: fadeDown 0.6s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes fadeDown { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+header h1 {
+  font-size:1.6rem; font-weight:600; letter-spacing:-0.5px;
+  background:linear-gradient(135deg,#6c5ce7,#00cec9);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+header p { font-size:0.85rem; color:var(--text-secondary); margin-top:4px; }
+
+.card {
+  background:var(--surface); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
+  border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:0 25px 60px rgba(0,0,0,0.4), 0 0 40px rgba(108,92,231,0.08);
+  overflow:hidden;
+  animation: scaleIn 0.5s cubic-bezier(0.16,1,0.3,1) 0.15s both;
+}
+@keyframes scaleIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
+
+.input-row {
+  display:flex; gap:8px; padding:16px 20px;
+  border-bottom:1px solid var(--border);
+}
+.input-row input {
+  flex:1; padding:12px 16px; border-radius:var(--radius-sm);
+  border:1px solid var(--border); background:rgba(255,255,255,0.04);
+  color:var(--text); font-size:0.95rem; font-family:inherit;
+  outline:none; transition:border-color 0.2s, box-shadow 0.2s;
+}
+.input-row input::placeholder { color:var(--text-muted); }
+.input-row input:focus {
+  border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-glow);
+}
+.input-row button {
+  width:44px; height:44px; border-radius:var(--radius-sm); border:none;
+  background:linear-gradient(135deg,#6c5ce7,#00cec9);
+  color:#fff; font-size:1.4rem; cursor:pointer; display:grid; place-items:center;
+  flex-shrink:0; transition:transform 0.15s, box-shadow 0.15s;
+  box-shadow:0 4px 15px rgba(108,92,231,0.25);
+}
+.input-row button:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(108,92,231,0.35); }
+.input-row button:active { transform:scale(0.93); }
+.input-row button:disabled { opacity:0.4; cursor:default; transform:none; box-shadow:none; }
+
+.toolbar {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 20px; border-bottom:1px solid var(--border);
+  font-size:0.8rem; color:var(--text-secondary);
+}
+.filters { display:flex; gap:4px; }
+.filters button {
+  background:none; border:none; color:var(--text-muted); cursor:pointer;
+  padding:4px 10px; border-radius:6px; font-size:0.8rem; font-family:inherit;
+  transition:color 0.15s, background 0.15s;
+}
+.filters button:hover { color:var(--text-secondary); background:var(--surface-hover); }
+.filters button.active { color:var(--primary); background:rgba(108,92,231,0.12); }
+
+.list { padding:4px 8px; min-height:80px; }
+.empty {
+  text-align:center; padding:40px 20px; color:var(--text-muted);
+  animation: fadeIn 0.3s ease;
+}
+.empty svg { width:48px; height:48px; margin-bottom:12px; opacity:0.3; }
+.empty p { font-size:0.9rem; }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+.item {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px; margin:4px 0; border-radius:var(--radius-sm);
+  transition:background 0.15s;
+  animation: itemIn 0.35s cubic-bezier(0.16,1,0.3,1) both;
+  position:relative;
+}
+@keyframes itemIn { from{opacity:0;transform:translateY(12px)scale(0.97)} to{opacity:1;transform:translateY(0)scale(1)} }
+.item.removing { animation: itemOut 0.25s ease both; pointer-events:none; }
+@keyframes itemOut { to{opacity:0;transform:translateX(30px)scale(0.95)} }
+.item:hover { background:var(--surface-hover); }
+
+.item .checkbox {
+  width:22px; height:22px; border-radius:50%; border:2px solid var(--border);
+  position:relative; cursor:pointer; flex-shrink:0;
+  transition:border-color 0.2s, background 0.2s, transform 0.15s;
+  display:grid; place-items:center;
+}
+.item .checkbox:hover { border-color:var(--primary); transform:scale(1.1); }
+.item .checkbox.checked {
+  background:linear-gradient(135deg,#00cec9,#6c5ce7); border-color:transparent;
+}
+.item .checkbox.checked::after {
+  content:''; width:7px; height:11px; border:solid #fff; border-width:0 2px 2px 0;
+  transform:rotate(45deg) translateY(-1px);
+  animation: checkPop 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes checkPop { 0%{transform:rotate(45deg)translateY(-1px)scale(0)} 100%{transform:rotate(45deg)translateY(-1px)scale(1)} }
+
+.item .text {
+  flex:1; font-size:0.92rem; line-height:1.4; word-break:break-word;
+  transition:color 0.2s;
+}
+.item .text.done {
+  color:var(--text-muted); text-decoration:line-through;
+}
+
+.item .del-btn {
+  width:28px; height:28px; border:none; border-radius:6px;
+  background:none; color:var(--text-muted); cursor:pointer; flex-shrink:0;
+  display:grid; place-items:center; font-size:1rem;
+  transition:background 0.15s, color 0.15s; opacity:0;
+}
+.item:hover .del-btn { opacity:1; }
+.item .del-btn:hover { background:rgba(255,107,129,0.15); color:var(--delete); }
+.item .del-btn:active { transform:scale(0.9); }
+
+@media (max-width:500px) {
+  body { padding:12px; }
+  .input-row { padding:12px 14px; }
+  .input-row input { padding:10px 12px; font-size:0.9rem; }
+  .item { padding:8px 10px; }
+  .item .del-btn { opacity:1; }
+  .toolbar { flex-wrap:wrap; gap:6px; }
+  .filters button { padding:3px 8px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<div class="bg">
+  <div class="orb"></div>
+  <div class="orb"></div>
+  <div class="orb"></div>
+</div>
+
+<div class="container">
+  <header>
+    <h1>todo</h1>
+    <p id="count">0 items</p>
+  </header>
+
+  <div class="card">
+    <div class="input-row">
+      <input id="input" type="text" placeholder="Add a task..." autofocus>
+      <button id="addBtn">+</button>
+    </div>
+
+    <div class="toolbar">
+      <span id="remaining">0 left</span>
+      <div class="filters">
+        <button data-filter="all" class="active">All</button>
+        <button data-filter="active">Active</button>
+        <button data-filter="completed">Done</button>
+      </div>
+    </div>
+
+    <div class="list" id="list">
+      <div class="empty" id="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <p>Nothing here yet</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/todos';
+let todos = [];
+let filter = 'all';
+
+const $ = s => document.querySelector(s);
+const input = $('#input');
+const addBtn = $('#addBtn');
+const list = $('#list');
+const empty = $('#empty');
+const count = $('#count');
+const remaining = $('#remaining');
+
+async function loadTodos() {
+  const res = await fetch(API);
+  todos = await res.json();
+  render();
+}
+
+async function addTodo() {
+  const text = input.value.trim();
+  if (!text) return;
+  addBtn.disabled = true;
+  try {
+    const res = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}) });
+    if (!res.ok) return;
+    const todo = await res.json();
+    todos.unshift(todo);
+    input.value = '';
+    input.focus();
+    render();
+  } finally { addBtn.disabled = false; }
+}
+
+async function toggleTodo(id) {
+  const t = todos.find(t => t.id === id);
+  if (!t) return;
+  const completed = !t.completed;
+  await fetch(API + '/' + id, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({completed}) });
+  t.completed = completed;
+  render();
+}
+
+async function deleteTodo(id, el) {
+  el.classList.add('removing');
+  await new Promise(r => setTimeout(r, 250));
+  await fetch(API + '/' + id, { method:'DELETE' });
+  todos = todos.filter(t => t.id !== id);
+  render();
+}
+
+function render() {
+  const filtered = filter === 'all' ? todos : filter === 'active' ? todos.filter(t=>!t.completed) : todos.filter(t=>t.completed);
+  remaining.textContent = todos.filter(t=>!t.completed).length + ' left';
+  count.textContent = todos.length + ' item' + (todos.length!==1?'s':'');
+
+  if (todos.length === 0) {
+    list.innerHTML = '<div class="empty" id="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><p>Nothing here yet</p></div>';
+    return;
+  }
+
+  let html = '';
+  for (const t of filtered) {
+    const done = t.completed ? 'done' : '';
+    const checked = t.completed ? 'checked' : '';
+    html += `<div class="item" data-id="${t.id}">
+      <div class="checkbox ${checked}"></div>
+      <span class="text ${done}">${escapeHtml(t.text)}</span>
+      <button class="del-btn" aria-label="Delete">✕</button>
+    </div>`;
+  }
+  list.innerHTML = html || '<div class="empty" id="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><p>Nothing here yet</p></div>';
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+list.addEventListener('click', e => {
+  const item = e.target.closest('.item');
+  if (!item) return;
+  const id = item.dataset.id;
+  if (e.target.closest('.del-btn')) { deleteTodo(id, item); return; }
+  if (e.target.closest('.checkbox') || e.target.closest('.text')) { toggleTodo(id); }
+});
+
+input.addEventListener('keydown', e => { if (e.key === 'Enter') addTodo(); });
+addBtn.addEventListener('click', addTodo);
+
+document.querySelectorAll('.filters button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.filters button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    filter = b.dataset.filter;
+    render();
+  });
+});
+
+loadTodos();
+</script>
+</body>
+</html>
