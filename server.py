@@ -22,7 +22,7 @@ def save(todos):
 @app.route('/api/todos', methods=['GET'])
 def get_todos():
     todos = load()
-    return jsonify(sorted(todos, key=lambda t: t.get('createdAt', ''), reverse=True))
+    return jsonify(sorted(todos, key=lambda t: t.get('order', 0)))
 
 @app.route('/api/todos', methods=['POST'])
 def create_todo():
@@ -30,11 +30,13 @@ def create_todo():
     if not data or not data.get('text', '').strip():
         return jsonify({'error': 'Text is required'}), 400
     todos = load()
+    max_order = max((t.get('order', 0) for t in todos), default=-1)
     todo = {
         'id': uuid.uuid4().hex,
         'text': data['text'].strip(),
         'completed': False,
         'createdAt': datetime.now(timezone.utc).isoformat(),
+        'order': max_order + 1,
     }
     todos.append(todo)
     save(todos)
@@ -49,7 +51,9 @@ def update_todo(todo_id):
             if 'text' in data and data['text'].strip():
                 t['text'] = data['text'].strip()
             if 'completed' in data:
-                t['completed'] = data['completed']
+                t['completed'] = bool(data['completed'])
+            if 'order' in data:
+                t['order'] = int(data['order'])
             save(todos)
             return jsonify(t)
     return jsonify({'error': 'Not found'}), 404
@@ -61,9 +65,23 @@ def delete_todo(todo_id):
     save(todos)
     return '', 204
 
+@app.route('/api/todos/reorder', methods=['PUT'])
+def reorder_todos():
+    data = request.get_json()
+    if not data or 'order' not in data:
+        return jsonify({'error': 'Order list required'}), 400
+    todos = load()
+    order_map = {item['id']: item['order'] for item in data['order']}
+    for t in todos:
+        if t['id'] in order_map:
+            t['order'] = order_map[t['id']]
+    save(todos)
+    return jsonify(sorted(todos, key=lambda t: t.get('order', 0)))
+
 @app.route('/')
 def index():
     return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
