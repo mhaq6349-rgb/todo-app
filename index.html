@@ -234,8 +234,6 @@ header p{font-size:.85rem;color:var(--text-secondary);margin-top:8px;font-family
       </div>
     </div>
 
-    <div class="offline-banner" id="offlineBanner">Server unreachable — changes won't be saved</div>
-
     <div class="toolbar">
       <span id="remaining">0 left</span>
       <div class="filters">
@@ -259,13 +257,12 @@ const API = '/api/todos'
 let todos = []
 let filter = localStorage.getItem('todoFilter') || 'all'
 let editingId = null
-let online = true
 
 const $ = s => document.querySelector(s)
 const input = $('#input'), addBtn = $('#addBtn'), list = $('#list')
 const count = $('#count'), remaining = $('#remaining'), clearBtn = $('#clearBtn')
 const dueDateInput = $('#dueDateInput'), clearDateBtn = $('#clearDateBtn')
-const toasts = $('#toasts'), offlineBanner = $('#offlineBanner')
+const toasts = $('#toasts')
 
 function todayISO() { return new Date().toISOString().slice(0,10) }
 
@@ -299,15 +296,6 @@ function formatDate(iso) {
 
 function formatDue(iso) { if (!iso) return ''; const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString(undefined,{month:'short',day:'numeric'}) }
 
-async function checkServer() {
-  try {
-    const res = await fetch(API + '?_=' + Date.now())
-    online = res.ok
-  } catch { online = false }
-  offlineBanner.classList.toggle('show', !online)
-  return online
-}
-
 async function api(method, path, body) {
   const opts = { method, headers:{'Content-Type':'application/json'} }
   if (body) opts.body = JSON.stringify(body)
@@ -318,9 +306,7 @@ async function api(method, path, body) {
 }
 
 async function loadTodos() {
-  await checkServer()
-  if (!online) return
-  try { todos = await api('GET', '') } catch { online = false; offlineBanner.classList.toggle('show', !online); toast('Failed to load todos', 3000) }
+  try { todos = await api('GET', '') } catch { toast('Failed to load todos', 3000) }
   render()
 }
 
@@ -332,8 +318,6 @@ function getDueDate() {
 async function addTodo() {
   const text = input.value.trim()
   if (!text) return
-  await checkServer()
-  if (!online) { toast('Cannot add — server is offline', 3000); return }
   addBtn.disabled = true
   try {
     const dueDate = getDueDate()
@@ -347,7 +331,6 @@ async function addTodo() {
 }
 
 async function toggleTodo(id) {
-  if (!online) return
   const t = todos.find(t => t.id === id)
   if (!t) return
   try {

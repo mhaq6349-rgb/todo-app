@@ -28,7 +28,6 @@ with sync_playwright() as p:
     print('\n=== Initial State ===')
     check('page loads', 'Todo' in page.title())
     check('empty state', page.locator('.empty').is_visible())
-    check('no offline banner', page.locator('#offlineBanner').is_hidden())
     check('date picker exists', page.locator('#dueDateInput').is_visible())
     check('count 0', '0 items' in page.locator('#count').text_content())
 
@@ -89,9 +88,6 @@ with sync_playwright() as p:
     page.locator('.toast-undo').click()
     page.wait_for_timeout(500)
     check('undo restores: 2', count(page) == 2, str(count(page)))
-
-    print('\n=== Offline Banner ===')
-    check('no offline banner', page.locator('#offlineBanner').is_hidden())
 
     print('\n=== API ===')
     res = page.evaluate('''async () => {
