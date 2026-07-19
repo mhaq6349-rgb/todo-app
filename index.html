@@ -254,15 +254,19 @@ header p{font-size:.85rem;color:var(--text-secondary);margin-top:8px;font-family
 
 <script>
 const API = '/api/todos'
+const STORAGE_KEY = 'todoApp'
 let todos = []
 let filter = localStorage.getItem('todoFilter') || 'all'
 let editingId = null
+let serverAvail = false
 
 const $ = s => document.querySelector(s)
 const input = $('#input'), addBtn = $('#addBtn'), list = $('#list')
 const count = $('#count'), remaining = $('#remaining'), clearBtn = $('#clearBtn')
 const dueDateInput = $('#dueDateInput'), clearDateBtn = $('#clearDateBtn')
 const toasts = $('#toasts')
+
+function uid() { return Math.random().toString(36).slice(2,10) + Date.now().toString(36) }
 
 function todayISO() { return new Date().toISOString().slice(0,10) }
 
@@ -296,48 +300,65 @@ function formatDate(iso) {
 
 function formatDue(iso) { if (!iso) return ''; const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString(undefined,{month:'short',day:'numeric'}) }
 
+function lsSave() { localStorage.setItem(STORAGE_KEY, JSON.stringify(todos)) }
+function lsLoad() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [] } catch { return [] }
+}
+
+async function serverSync() {
+  try {
+    const res = await fetch(API + '?_=' + Date.now())
+    serverAvail = res.ok
+  } catch { serverAvail = false }
+}
+
 async function api(method, path, body) {
+  if (!serverAvail) return null
   const opts = { method, headers:{'Content-Type':'application/json'} }
   if (body) opts.body = JSON.stringify(body)
-  const res = await fetch(API + path, opts)
-  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || 'Request failed') }
-  if (res.status === 204) return null
-  return res.json()
+  try {
+    const res = await fetch(API + path, opts)
+    if (!res.ok) return null
+    if (res.status === 204) return null
+    return res.json()
+  } catch { return null }
 }
 
 async function loadTodos() {
-  try { todos = await api('GET', '') } catch { toast('Failed to load todos', 3000) }
+  await serverSync()
+  if (serverAvail) {
+    try {
+      const data = await api('GET', '')
+      if (data && data.length) {
+        todos = data.map(t => ({ ...t, id: uid(), serverId: t.id }))
+        lsSave(); render(); return
+      }
+    } catch {}
+  }
+  todos = lsLoad()
   render()
 }
 
-function getDueDate() {
-  const val = dueDateInput.value
-  return val || ''
-}
+function getDueDate() { return dueDateInput.value || '' }
 
 async function addTodo() {
   const text = input.value.trim()
   if (!text) return
-  addBtn.disabled = true
-  try {
-    const dueDate = getDueDate()
-    const todo = await api('POST', '', { text, dueDate })
-    todos.unshift(todo)
-    input.value = ''; dueDateInput.value = ''; clearDateBtn.classList.remove('show')
-    input.focus()
-    render()
-  } catch (e) { toast(e.message, 3000) }
-  finally { addBtn.disabled = false }
+  const todo = { id: uid(), text, completed: false, createdAt: new Date().toISOString(), order: todos.length, dueDate: getDueDate() }
+  todos.unshift(todo)
+  lsSave()
+  input.value = ''; dueDateInput.value = ''; clearDateBtn.classList.remove('show')
+  input.focus()
+  render()
+  api('POST', '', { text, dueDate: todo.dueDate }).then(d => { if (d) { todo.serverId = d.id; todo.completed = d.completed; todo.createdAt = d.createdAt; lsSave() } })
 }
 
 async function toggleTodo(id) {
   const t = todos.find(t => t.id === id)
   if (!t) return
-  try {
-    t.completed = !t.completed
-    await api('PUT', '/' + id, { completed: t.completed })
-    render()
-  } catch (e) { t.completed = !t.completed; toast(e.message, 3000) }
+  t.completed = !t.completed
+  lsSave(); render()
+  api('PUT', '/' + (t.serverId || t.id), { completed: t.completed })
 }
 
 function startEdit(id) {
@@ -346,17 +367,15 @@ function startEdit(id) {
   if (edit) { edit.focus(); edit.select() }
 }
 
-async function saveEdit(id) {
+function saveEdit(id) {
   const edit = list.querySelector('.text-edit')
   if (!edit) return
   const text = edit.value.trim()
   if (!text) { editingId = null; render(); return }
-  try {
-    await api('PUT', '/' + id, { text })
-    const t = todos.find(t => t.id === id)
-    if (t) t.text = text
-    editingId = null; render()
-  } catch (e) { toast(e.message, 3000); editingId = null; render() }
+  const t = todos.find(t => t.id === id)
+  if (t) t.text = text
+  editingId = null; lsSave(); render()
+  api('PUT', '/' + (t.serverId || t.id), { text })
 }
 
 function cancelEdit() { editingId = null; render() }
@@ -366,10 +385,9 @@ async function deleteTodo(id, el) {
   await new Promise(r => setTimeout(r, 250))
   const deleted = todos.find(t => t.id === id)
   todos = todos.filter(t => t.id !== id)
-  render()
+  lsSave(); render()
   showUndo(deleted)
-  try { await api('DELETE', '/' + id) }
-  catch (e) { todos.unshift(deleted); render(); toast(e.message, 3000) }
+  api('DELETE', '/' + (deleted.serverId || deleted.id))
 }
 
 function showUndo(todo) {
@@ -383,17 +401,16 @@ function showUndo(todo) {
 }
 
 function undoDelete(todo) {
-  todos.unshift(todo); render()
-  api('POST', '', { text: todo.text, dueDate: todo.dueDate || '' }).catch(() => {})
+  todos.unshift(todo); lsSave(); render()
+  api('POST', '', { text: todo.text, dueDate: todo.dueDate || '' }).then(d => { if (d) todo.serverId = d.id })
 }
 
-async function clearCompleted() {
+function clearCompleted() {
   const completed = todos.filter(t => t.completed)
-  todos = todos.filter(t => !t.completed); render()
-  try {
-    await Promise.all(completed.map(t => api('DELETE', '/' + t.id)))
-    toast('Cleared ' + completed.length + ' completed', 2000)
-  } catch (e) { completed.forEach(t => todos.push(t)); render(); toast(e.message, 3000) }
+  todos = todos.filter(t => !t.completed)
+  lsSave(); render()
+  toast('Cleared ' + completed.length + ' completed', 2000)
+  Promise.all(completed.map(t => api('DELETE', '/' + (t.serverId || t.id))))
 }
 
 let dragId = null
@@ -416,8 +433,9 @@ list.addEventListener('drop', e => {
   if (from<0||to<0) return
   const [moved] = todos.splice(from,1); const rect = target.getBoundingClientRect()
   todos.splice(to + (e.clientY > rect.top + rect.height/2 ? 1 : 0), 0, moved)
-  todos.forEach((t,i) => t.order = i); render()
-  api('PUT', '/reorder', { order: todos.map((t,i) => ({id:t.id,order:i})) }).catch(() => {})
+  todos.forEach((t,i) => t.order = i)
+  lsSave(); render()
+  api('PUT', '/reorder', { order: todos.map((t,i) => ({id:t.serverId || t.id,order:i})) })
 })
 
 function toast(msg, duration = 2000) {
